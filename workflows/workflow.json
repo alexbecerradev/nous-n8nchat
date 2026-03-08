@@ -1,0 +1,370 @@
+{
+  "name": "AI-Powered Customer Message Routing and Lead Management",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "5c3c4872-da7e-426a-8052-bc427076e475",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -160,
+        304
+      ],
+      "id": "e1c1cd48-6587-43a2-9f0e-d8e9ebaa83b9",
+      "name": "Webhook",
+      "webhookId": "5c3c4872-da7e-426a-8052-bc427076e475"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an AI assistant for a business automation and AI agent consultancy. Your goals are:\n\n1. Help users understand how automation and AI agents can benefit their business\n2. Detect their level of interest\n3. Collect contact information when interest is HIGH\n\n**Interest Level Guidelines:**\n- LOW: User is asking general questions about automation/AI (\"What is automation?\", \"How does AI work?\")\n- MEDIUM: User shows interest but isn't ready to commit (\"That sounds interesting\", \"I might need this later\")\n- HIGH: User wants specific automation solutions or pricing (\"How much does it cost?\", \"I need to automate my invoicing\", \"Can you help with my business?\")\n\n**Conversation Strategy:**\n- Be helpful, friendly, and educational\n- Explain automation benefits with concrete examples relevant to their questions\n- When interest is HIGH, ask for: Name, Business name, Phone/WhatsApp, Email, and what they want to automate\n- Don't ask for all information at once - gather it conversationally\n- If they haven't provided all required info for HIGH interest, ask for the missing pieces naturally\n\n**Response Format:**\nYou MUST return a JSON object with:\n- reply: Your message to the user\n- interest_level: LOW, MEDIUM, or HIGH\n- name, business, phone, email, need: Fill these if available (empty string if not)\n\nRemember: Always assess interest level based on the conversation context and user's questions."
+        }
+      },
+      "id": "cb88bbd2-7374-43a4-bd30-6072c1a9e2b0",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        128,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "ba615d53-62ca-4692-9cf0-52e6fe7940dc",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        64,
+        528
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "B6Z6nFMWDUOT3JDA",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output }}",
+        "options": {}
+      },
+      "id": "962f949b-4c56-4581-b17f-c1b596f179cd",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{$json.body.sessionId}}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        528
+      ],
+      "id": "b11aa257-aba0-41af-a60b-f96c501b7ac3",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"Message for the user\"\n    },\n    \"interest_level\": {\n      \"type\": \"string\",\n      \"enum\": [\"LOW\", \"MEDIUM\", \"HIGH\"],\n      \"description\": \"User's interest level: LOW (general questions), MEDIUM (interested but not ready), HIGH (wants automation or pricing)\"\n    },\n    \"name\": {\n      \"type\": \"string\",\n      \"description\": \"User's name (only if interest is HIGH and provided)\"\n    },\n    \"business\": {\n      \"type\": \"string\",\n      \"description\": \"Business name (only if interest is HIGH and provided)\"\n    },\n    \"phone\": {\n      \"type\": \"string\",\n      \"description\": \"Phone or WhatsApp number (only if interest is HIGH and provided)\"\n    },\n    \"email\": {\n      \"type\": \"string\",\n      \"description\": \"Email address (only if interest is HIGH and provided)\"\n    },\n    \"need\": {\n      \"type\": \"string\",\n      \"description\": \"What they want to automate (only if interest is HIGH and provided)\"\n    }\n  },\n  \"required\": [\"reply\", \"interest_level\", \"name\", \"business\", \"phone\", \"email\", \"need\"]\n}"
+      },
+      "id": "0a5d11ce-2a65-408e-b6b4-4ace17ae290d",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        320,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $('AI Agent').item.json.output.interest_level }}",
+              "rightValue": "HIGH",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "id-2",
+              "leftValue": "={{ $('AI Agent').item.json.output.name }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-3",
+              "leftValue": "={{ $('AI Agent').item.json.output.business }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-4",
+              "leftValue": "={{ $('AI Agent').item.json.output.phone }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-5",
+              "leftValue": "={{ $('AI Agent').item.json.output.email }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-6",
+              "leftValue": "={{ $('AI Agent').item.json.output.need }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2098d066-d692-4a69-a952-a6b853ad7b8e",
+      "name": "Check HIGH Interest & Complete Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        304,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "17Ht2PRZb1GDZZk01GkJ-PtWoEMYda83S1WdNPrevxLk",
+          "mode": "list",
+          "cachedResultName": "n8nClients 2026",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17Ht2PRZb1GDZZk01GkJ-PtWoEMYda83S1WdNPrevxLk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1357144601,
+          "mode": "list",
+          "cachedResultName": "Posibles clientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17Ht2PRZb1GDZZk01GkJ-PtWoEMYda83S1WdNPrevxLk/edit#gid=1357144601"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nombre": "={{ $json.output.name }}",
+            "negocio": "={{ $json.output.business }}",
+            "telefono": "={{ $('AI Agent').item.json.output.phone }}",
+            "email": "={{ $('AI Agent').item.json.output.email }}",
+            "consulta": "={{ $('AI Agent').item.json.output.need }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "negocio",
+              "displayName": "negocio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telefono",
+              "displayName": "telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "consulta",
+              "displayName": "consulta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "2f32fa16-89f8-455d-bea1-2d7decf7067e",
+      "name": "Save Lead to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        512
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gxMgQFCiHpkbsJIH",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Check HIGH Interest & Complete Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check HIGH Interest & Complete Data": {
+      "main": [
+        [
+          {
+            "node": "Save Lead to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8471089d-8ca6-42c3-a4f0-ab43a915dc73",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "be4d549900acb6f889d5a0888902efc87ceca25bdb6574f5131c6e3c8e3de730"
+  },
+  "id": "u8jXliqaxb1r3wPq",
+  "tags": []
+}
